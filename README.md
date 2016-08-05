@@ -58,4 +58,9 @@ Customer sends back 48bytes reply containing user name (unencrypted) and probabl
         self.talk(["/login", "=name=" + username,
                    "=response=00" + binascii.hexlify(md.digest())])
 ```
-We have to check if same alghoritm is in use for the btest
+However it was found that this is not workong this way, e.g. this is challenge-response pair for the 'test' user/password:
+```
+ad32d6f94d28161625f2f390bb895637
+3c968565bc0314f281a6da1571cf7255
+```
+The challenge protocol is not know yet. 
