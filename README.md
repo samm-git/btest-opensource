@@ -45,4 +45,13 @@ There is no official protocl description, so everything was obtained using WireS
  - cmd[12:15]: local-tx-speed, 0: unlimimted, 1-4294967295: value
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
 If auth is enabled it sends 20bytes command (probably) with 02:00:00:00 in the beginning and some random bytes in the [4:15] bytes.
-Customer sends back 48bytes reply containing user name (unencrypted) and probably hash of the password with random salt. This is to be discovered.
+Customer sends back 48bytes reply containing user name (unencrypted) and probably hash of the password with random salt. This is to be discovered. In the API manual (http://wiki.mikrotik.com/wiki/Manual:API) mikrotik using 16 bytes challenge and md5 to create response:
+```
+        md = md5.new()
+        md.update('\x00')
+        md.update(pwd)
+        md.update(chal)
+        self.talk(["/login", "=name=" + username,
+                   "=response=00" + binascii.hexlify(md.digest())])
+```
+We have to check if same alghoritm is in use for the btest
