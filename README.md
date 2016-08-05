@@ -63,4 +63,10 @@ However it was found that this is not workong this way, e.g. this is challenge-r
 ad32d6f94d28161625f2f390bb895637
 3c968565bc0314f281a6da1571cf7255
 ```
-The challenge protocol is not know yet. To guess challing alghoritm ive done a small btest server which always sends fixed hash (00000000000000000000000000000000). This way i been able to find that btest tool is sendn
+The challenge protocol is not know yet. To guess challing alghoritm ive done a small btest server which always sends fixed hash (00000000000000000000000000000000). This way i been able to find that btest tool is sending double md5 of the challenge if password is not set:
+```
+# echo  00000000000000000000000000000000| xxd -r -p | md5 |xxd -r -p |md5
+398d01fdf7934d1292c263d374778e1a
+```
+
+But if password is set hash is different, and i been not able to find the way how to reproduce it yet.
