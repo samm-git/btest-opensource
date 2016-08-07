@@ -26,7 +26,8 @@ There is no official protocl description, so everything was obtained using WireS
 01:03:00:00:00:80:00:00:00:00:00:00:00:00:00:00 (both, random data)
 00:03:01:00:dc:05:00:00:00:00:00:00:00:00:00:00 (both, UDP)
 > bserver: Start test confirm (auth is disabled on server):
-01:00:00:00
+01:00:00:00 (tcp-connection-count=1 on a client)
+01:bc:04:00 (tcp-connection-count>1 on a client)
 > bserver: auth requested, with 16 challenge bytes (3 random packets provided)
 02:00:00:00:90:67:3f:0f:5c:c7:4e:17:a0:e0:9e:1c:b9:ee:3b:0c
 02:00:00:00:17:e7:ee:84:83:cc:15:53:e8:fa:9c:0d:ad:ac:b8:e1
@@ -52,6 +53,7 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
 If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. See "authentication" section.
 4. If auth failed server sends back `00000000` (client shows "authentication failed"), if succeed - `01000000` packet and test is starting.
+5. If tcp-connection-count > 1 server should reply with `01:xx:xx:00` where xx seems to be some kind of authentification data to start other connections. This number is used in other threads. 
 
 ## Authentication
 Sample of the challenge-response for the "test" password:
