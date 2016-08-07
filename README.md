@@ -9,7 +9,7 @@ There is no official protocl description, so everything was obtained using WireS
 ```
 > bserver: hello
 01:00:00:00 
-> client: Start receive cmd 
+> client: Start test cmd, depending on the client settings:
 01:01:01:00:00:80:00:00:00:00:00:00:00:00:00:00 (transmit)
 01:01:00:00:00:80:00:00:00:00:00:00:00:00:00:00 (transmit, random data)
 00:01:01:00:dc:05:00:00:00:00:00:00:00:00:00:00 (transmit, UDP)
@@ -25,9 +25,9 @@ There is no official protocl description, so everything was obtained using WireS
 01:03:01:00:00:80:00:00:00:00:00:00:00:00:00:00 (both)
 01:03:00:00:00:80:00:00:00:00:00:00:00:00:00:00 (both, random data)
 00:03:01:00:dc:05:00:00:00:00:00:00:00:00:00:00 (both, UDP)
-> bserver: Start receive (auth is disabled on server):
+> bserver: Start test confirm (auth is disabled on server):
 01:00:00:00
-> bserver: auth requested (3 random packets)
+> bserver: auth requested, with 16 challenge bytes (3 random packets provided)
 02:00:00:00:90:67:3f:0f:5c:c7:4e:17:a0:e0:9e:1c:b9:ee:3b:0c
 02:00:00:00:17:e7:ee:84:83:cc:15:53:e8:fa:9c:0d:ad:ac:b8:e1
 02:00:00:00:ee:d1:19:b9:d3:f2:df:6d:04:46:da:25:55:44:49:81
@@ -60,4 +60,4 @@ To guess hashing alghoritm i implemented btest server which always sends fixed h
 # echo  00000000000000000000000000000000| xxd -r -p | md5 |xxd -r -p |md5
 398d01fdf7934d1292c263d374778e1a
 ```
-But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge '00000000000000000000000000000000' and password '1' final hash is 'a56b579c4f5194426ae217b3ee4ec1ba'. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
+But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge `00000000000000000000000000000000` and password '1' final hash is `a56b579c4f5194426ae217b3ee4ec1ba`. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
