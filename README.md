@@ -49,25 +49,15 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
  - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value
  - cmd[12:15]: local-tx-speed, 0: unlimimted, 1-4294967295: value
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
-If auth is enabled it sends 20bytes command (probably) with 02:00:00:00 in the beginning and some random bytes in the [4:15] bytes.
-Customer sends back 48bytes reply containing user name (unencrypted) and probably hash of the password with random salt. This is to be discovered. In the API manual (http://wiki.mikrotik.com/wiki/Manual:API) mikrotik using 16 bytes challenge and md5 to create response:
-```
-        md = md5.new()
-        md.update('\x00')
-        md.update(pwd)
-        md.update(chal)
-        self.talk(["/login", "=name=" + username,
-                   "=response=00" + binascii.hexlify(md.digest())])
-```
-However it was found that this is not workong this way, e.g. this is challenge-response pair for the 'test' user/password:
+If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
+Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. Sample of the challenge-response for the "test" password:
 ```
 ad32d6f94d28161625f2f390bb895637
 3c968565bc0314f281a6da1571cf7255
 ```
-The challenge protocol is not know yet. To guess challing alghoritm ive done a small btest server which always sends fixed hash (00000000000000000000000000000000). This way i been able to find that btest tool is sending double md5 of the challenge if password is not set:
+To guess hashing alghoritm i implemented btest server which always sends fixed hash data (00000000000000000000000000000000). This way i been able to find that btest tool is sending double md5 of the challenge if password is not set:
 ```
 # echo  00000000000000000000000000000000| xxd -r -p | md5 |xxd -r -p |md5
 398d01fdf7934d1292c263d374778e1a
 ```
-
-But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge '00000000000000000000000000000000' and password '1' auth is a56b579c4f5194426ae217b3ee4ec1ba.
+But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge '00000000000000000000000000000000' and password '1' final hash is 'a56b579c4f5194426ae217b3ee4ec1ba'. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
