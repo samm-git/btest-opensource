@@ -69,4 +69,4 @@ The challenge protocol is not know yet. To guess challing alghoritm ive done a s
 398d01fdf7934d1292c263d374778e1a
 ```
 
-But if password is set hash is different, and i been not able to find the way how to reproduce it yet.
+But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge '00000000000000000000000000000000' and password '1' auth is a56b579c4f5194426ae217b3ee4ec1ba.
