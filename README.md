@@ -60,4 +60,4 @@ To guess hashing alghoritm i implemented btest server which always sends fixed h
 # echo  00000000000000000000000000000000| xxd -r -p | md5 |xxd -r -p |md5
 398d01fdf7934d1292c263d374778e1a
 ```
-But if password is set hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge `00000000000000000000000000000000` and password '1' final hash is `a56b579c4f5194426ae217b3ee4ec1ba`. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
+But if password is set - hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge `00000000000000000000000000000000` and password '1' final hash is `a56b579c4f5194426ae217b3ee4ec1ba`. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
