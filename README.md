@@ -22,6 +22,7 @@ There is no official protocl description, so everything was obtained using WireS
 01:02:01:00:00:80:00:00:ff:ff:ff:ff:00:00:00:00 (receive, remote-tx-speed=4294967295)
 01:02:01:00:00:80:00:00:00:00:00:00:01:00:00:00 (receive, local-tx-speed=1)
 01:02:01:00:00:80:00:00:00:00:00:00:ff:ff:ff:ff (receive, local-tx-speed=4294967295)
+01:02:01:0a:00:80:00:00:00:00:00:00:00:00:00:00 (receive, tcp-connection-count=10)
 01:03:01:00:00:80:00:00:00:00:00:00:00:00:00:00 (both)
 01:03:00:00:00:80:00:00:00:00:00:00:00:00:00:00 (both, random data)
 00:03:01:00:dc:05:00:00:00:00:00:00:00:00:00:00 (both, UDP)
@@ -44,7 +45,7 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
  - cmd[0]: protocol, 01: TCP, 00: UDP
  - cmd[1]: direction, 01 - transmit, 02 - receive, 03 - both
  - cmd[2]: use random data, 00 - use random, 01: use \00 character
- - cmd[3]: always 0?
+ - cmd[3]: tcp-connection-count, 0 if tcp-connection-count=1, number if more
  - cmd[4:5]: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP, UINT16 - Little Endian
  - cmd[6:7]: always 0?
  - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
