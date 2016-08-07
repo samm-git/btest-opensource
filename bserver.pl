@@ -34,7 +34,7 @@ while(1)
     # write response data to the connected client
     $data = pack 'H*', '01000000';
     $client_socket->send($data);
-    print "reading reply\m";
+    print "reading reply\n";
     $client_socket->recv($data, 1024);
     print "data is ".unpack('H*', "$data")."\n";
     # send auth requested command
