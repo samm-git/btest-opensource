@@ -42,12 +42,12 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
 2. Client sends 16 bytes command started with 01 (TCP) or 00 (UDP) command to the server. Some of the bytes guess:
  - cmd[0]: protocol, 01: TCP, 00: UDP
  - cmd[1]: direction, 01 - transmit, 02 - receive, 03 - both
- - cmd[2]: random data, 00 - random, 01: use \00 character
+ - cmd[2]: use random data, 00 - use random, 01: use \00 character
  - cmd[3]: always 0?
- - cmd[4:5]: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP
+ - cmd[4:5]: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP, UINT16 - Little Endian
  - cmd[6:7]: always 0?
- - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value
- - cmd[12:15]: local-tx-speed, 0: unlimimted, 1-4294967295: value
+ - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
+ - cmd[12:15]: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
 If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. Sample of the challenge-response for the "test" password:
