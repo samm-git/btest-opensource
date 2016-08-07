@@ -43,6 +43,7 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
  - cmd[0]: protocol, 01: TCP, 00: UDP
  - cmd[1]: direction, 01 - transmit, 02 - receive, 03 - both
  - cmd[2]: random data, 00 - random, 01: use \00 character
+ - cmd[3]: always 0?
  - cmd[4:5]: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP
  - cmd[6:7]: always 0?
  - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value
