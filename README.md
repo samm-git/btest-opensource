@@ -51,7 +51,7 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
 If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. See "authentication" section.
-4. If auth failed sends back `00000000`, if succeed - `01000000` packet.
+4. If auth failed server sends back `00000000` (client shows "authentication failed"), if succeed - `01000000` packet and test is starting.
 
 ## Authentication
 Sample of the challenge-response for the "test" password:
