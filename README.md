@@ -55,11 +55,12 @@ If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the be
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. See "authentication" section.
 4. If auth failed server sends back `00000000` (client shows "authentication failed"), if succeed - `01000000` packet and test is starting.
 5. If tcp-connection-count > 1 server should reply with `01:xx:xx:00` where xx seems to be some kind of authentification data to start other connections. This number is used in other threads. 
-6. From time to time (~1 per second) server or client sends 12 bytes messages started with `07`, e.g. `07:00:00:00:01:00:00:00:36:6e:03:00`. It looks like to be server-level statistic, where:
-  - stat[0] is 07 (command id)
+6. From time to time (~1 per second) server or client sends 12 bytes messages started with `07`, e.g. `07:00:00:00:01:00:00:00:36:6e:03:00`. Btest client relies on this information to show "transmit" speed.  It is server-level statistic, where values are:
+  - stat[0] is 07 (message id)
   - stat[4-7]  number or time from start in seconds, sends one per second, UINT32 - Little Endian
   - stat[8-11] number of bytes transferred per sequence, UINT32 - Little Endian
-  
+ 
+
 
 ## Authentication
 Sample of the challenge-response for the "test" password:
