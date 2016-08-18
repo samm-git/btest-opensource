@@ -68,9 +68,17 @@ Sample of the challenge-response for the "test" password:
 ad32d6f94d28161625f2f390bb895637
 3c968565bc0314f281a6da1571cf7255
 ```
-To guess hashing alghoritm i implemented btest server which always sends fixed hash data (`00000000000000000000000000000000`). This way i been able to find that btest tool is sending double md5 of the challenge if password is not set:
+
+Hashing alghoritm was found with implementation of the testing server and help from the **Chupaka** on a Mikrotik forum. It is 
+md5('password' + md5('password' + hash)). This is an example on the PHP language:
+
+```php
+$salt='ad32d6f94d28161625f2f390bb895637';
+$pass='test';
+
+echo  MikrotikHash($salt, $pass)."\n";
+
+function MikrotikHash($salt, $pass){
+    return md5(hex2bin(bin2hex($pass).md5(hex2bin(bin2hex($pass).$salt))));
+}
 ```
-# echo  00000000000000000000000000000000| xxd -r -p | md5 |xxd -r -p |md5
-398d01fdf7934d1292c263d374778e1a
-```
-But if password is set - hash is different, and i been not able to find the way how to reproduce it yet. E.g. with challenge `00000000000000000000000000000000` and password '1' final hash is `a56b579c4f5194426ae217b3ee4ec1ba`. Also it was found that only password and challenge are used in the hash, because username is not affecting resulting data. 
