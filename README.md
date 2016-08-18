@@ -71,15 +71,14 @@ ad32d6f94d28161625f2f390bb895637
 ```
 
 Hashing alghoritm was found with implementation of the testing server and help from the **Chupaka** on a Mikrotik forum. It is 
-md5('password' + md5('password' + hash)). This is an example on the PHP language, which using challenge from the example and returns same hash:
+md5('password' + md5('password' + hash)). This is an example on the Perl
+language, which using challenge from the example and returns same hash:
 
-```php
-$salt='ad32d6f94d28161625f2f390bb895637';
-$pass='test';
+```perl
+use Digest::MD5 qw(md5 md5_hex md5_base64);
 
-echo  MikrotikHash($salt, $pass)."\n";
-
-function MikrotikHash($salt, $pass){
-    return md5(hex2bin(bin2hex($pass).md5(hex2bin(bin2hex($pass).$salt))));
-}
+my $salt='ad32d6f94d28161625f2f390bb895637';
+my $pass='test';
+print md5_hex($pass.md5($pass.pack( 'H*', $salt)))."\n";
 ```
+Script should return `3c968565bc0314f281a6da1571cf7255` and its matching captured traffic. 
