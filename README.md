@@ -75,7 +75,7 @@ md5('password' + md5('password' + hash)). This is an example on the Perl
 language, which using challenge from the example and returns same hash:
 
 ```perl
-use Digest::MD5 qw(md5 md5_hex md5_base64);
+use Digest::MD5 qw(md5 md5_hex);
 
 my $salt='ad32d6f94d28161625f2f390bb895637';
 my $pass='test';
