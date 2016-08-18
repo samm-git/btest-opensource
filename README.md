@@ -42,23 +42,23 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
 ```
 1. Server always starts with "hello" (01:00:00:00) command after establishing TCP connection to port 2000. If UDP protocl is specified in the client TCP connection is still established.
 2. Client sends 16 bytes command started with 01 (TCP) or 00 (UDP) command to the server. Some of the bytes guess:
- - cmd[0]: protocol, 01: TCP, 00: UDP
- - cmd[1]: direction, 01 - transmit, 02 - receive, 03 - both
- - cmd[2]: use random data, 00 - use random, 01: use \00 character
- - cmd[3]: tcp-connection-count, 0 if tcp-connection-count=1, number if more
- - cmd[4:5]: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP, UINT16 - Little Endian
- - cmd[6:7]: always 0?
- - cmd[8:11]: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
- - cmd[12:15]: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
+ - **cmd[0]**: protocol, 01: TCP, 00: UDP
+ - **cmd[1]**: direction, 01 - transmit, 02 - receive, 03 - both
+ - **cmd[2]**: use random data, 00 - use random, 01: use \00 character
+ - **cmd[3]**: tcp-connection-count, 0 if tcp-connection-count=1, number if more
+ - **cmd[4:5]**: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP, UINT16 - Little Endian
+ - **cmd[6:7]**: always 0?
+ - **cmd[8:11]**: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
+ - **cmd[12:15]**: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
 If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is not known. See "authentication" section.
 4. If auth failed server sends back `00000000` (client shows "authentication failed"), if succeed - `01000000` packet and test is starting.
 5. If tcp-connection-count > 1 server should reply with `01:xx:xx:00` where xx seems to be some kind of authentification data to start other connections. This number is used in other threads. 
 6. From time to time (~1 per second) server or client sends 12 bytes messages started with `07`, e.g. `07:00:00:00:01:00:00:00:36:6e:03:00`. Btest client relies on this information to show "transmit" speed.  It is server-level statistic, where values are:
-  - stat[0] is 07 (message id)
-  - stat[4-7]  number or time from start in seconds, sends one per second, UINT32 - Little Endian
-  - stat[8-11] number of bytes transferred per sequence, UINT32 - Little Endian
+  - **stat[0]** is 07 (message id)
+  - **stat[4-7]**  number or time from start in seconds, sends one per second, UINT32 - Little Endian
+  - **stat[8-11]** number of bytes transferred per sequence, UINT32 - Little Endian
  
 
 
