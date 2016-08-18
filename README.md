@@ -1,11 +1,12 @@
-# btest-opensource
+# Mikrotik bandwith test protocol description
 ## about
 This is attempt to create opensource version of the btest tool. Currently it is possible to run bandwith-test only from another mikrotik devices or from the windows closed source client. 
 
 Protocol itsef seems to be not complicated, so it should not be easy to create 3rd party client for it.
 
 ## Protocol description
-There is no official protocl description, so everything was obtained using WireShark tool and RouterOS 6 running in the virtualbox, which was connecting to the real device. For now i am inspecting only TCP, later will try to do UDP if TCP works.
+There is no official protocl description, so everything was obtained using WireShark tool and RouterOS 6 running in the virtualbox, which was connecting to the real device. For now i am inspecting only TCP, later will try to do UDP if TCP works. Please keep in mind that this data is guessed on the captures, so possibly is not accurate or wrong. 
+
 ```
 > bserver: hello
 01:00:00:00 
