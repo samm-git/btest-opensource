@@ -70,7 +70,7 @@ ad32d6f94d28161625f2f390bb895637
 ```
 
 Hashing alghoritm was found with implementation of the testing server and help from the **Chupaka** on a Mikrotik forum. It is 
-md5('password' + md5('password' + hash)). This is an example on the PHP language:
+md5('password' + md5('password' + hash)). This is an example on the PHP language, which using challenge from the example and returns same hash:
 
 ```php
 $salt='ad32d6f94d28161625f2f390bb895637';
