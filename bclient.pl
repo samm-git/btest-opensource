@@ -26,7 +26,7 @@ print "connecting to server port 2000\n";
 $socket->recv($data, 1024);
 print "client hello data is ".unpack('H*', "$data")."\n";
 $data=pack('CCCCvvNN',
-	0, # UDP
+	1, # UDP
 	2, # TX
 	1, # Not random
 	0, # TCP Count
