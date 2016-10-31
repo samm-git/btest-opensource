@@ -49,8 +49,8 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
  - **cmd[3]**: tcp-connection-count, 0 if tcp-connection-count=1, number if more
  - **cmd[4:5]**: remote-udp-tx-size (dc:05) on UDP, 00:80 on TCP, UINT16 - Little Endian
  - **cmd[6:7]**: client buffer size. Maximum value for TCP is 65535 (FF:FF).
- - **cmd[8:11]**: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
- - **cmd[12:15]**: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Big Endian
+ - **cmd[8:11]**: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Little Endian
+ - **cmd[12:15]**: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Little Endian
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
 If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
 Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is double md5, hashed by challenge, see "authentication" section.
