@@ -32,7 +32,7 @@ struct cmdStruct {
 	int random;
 	int tcp_conn_count;
 	int tx_size;
-	int unknown;
+	int client_buf_size;
 	unsigned long remote_tx_speed;
 	unsigned long local_tx_speed;
 };
@@ -138,7 +138,7 @@ int client() {
 	cmd.random=0;
 	cmd.tcp_conn_count=0;
 	cmd.tx_size=1500;
-	cmd.unknown;
+	cmd.client_buf_size=0;
 
 	if (opt_bandwidth) {
 		if ((ret=sscanf(opt_bandwidth, "%lu%c", &cmd.remote_tx_speed, &bwmult))<1) {
@@ -278,7 +278,7 @@ int server_conn(int cmdsock, char *remoteIP) {
 	printf("random=%d\n" , cmd.random);
 	printf("tcp_conn_count=%d\n" , cmd.tcp_conn_count);
 	printf("tx_size=%d\n" , cmd.tx_size);
-	printf("unknown=%d\n" , cmd.unknown);
+	printf("client_buf_size=%d\n" , cmd.client_buf_size);
 	printf("remote_tx_speed=%lu\n" , cmd.remote_tx_speed);
 	printf("local_tx_speed=%lu\n" , cmd.local_tx_speed);
 	printf("remoteIP=%s\n" , remoteIP);
@@ -362,7 +362,7 @@ struct cmdStruct unpackCmdStr(unsigned char *cmdStr) {
 	unpackShortLE(&cmdStr[4], &cmd.tx_size);
 
 	/* Assume little endian */
-	unpackShortLE(&cmdStr[6], &cmd.unknown);
+	unpackShortLE(&cmdStr[6], &cmd.client_buf_size);
 	unpackLongLE(&cmdStr[8], &cmd.remote_tx_speed);
 	unpackLongLE(&cmdStr[12], &cmd.local_tx_speed);
 
@@ -379,7 +379,7 @@ void packCmdStr(struct cmdStruct *pcmd, unsigned char *buf) {
 	/* Little endian */
 	packShortLE(&buf[4], pcmd->tx_size);
 
-	packShortLE(&buf[6], 0);
+	packShortLE(&buf[6], pcmd->client_buf_size);
 	
 	packLongLE(&buf[8], pcmd->remote_tx_speed);
 	packLongLE(&buf[12], pcmd->local_tx_speed);
