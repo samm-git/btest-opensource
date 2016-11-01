@@ -11,21 +11,39 @@ use Data::Dumper;
 # auto-flush on socket
 $| = 1;
  
-my $require_auth=0;
-
 my $udp_port_offset=256;
+my $require_auth=0;
 
 # creating a listening socket
 my $socket = new IO::Socket::INET (
-    LocalHost => '0.0.0.0',
-    LocalPort => '2000',
+    PeerHost => '192.168.10.1',
+    PeerPort => '2000',
     Proto => 'tcp',
-    Listen => 5,
-    Reuse => 1
 );
 die "cannot create socket $!\n" unless $socket;
-print "server waiting for client connection on port 2000\n";
+print "connecting to server port 2000\n";
  
+$socket->recv($data, 1024);
+print "client hello data is ".unpack('H*', "$data")."\n";
+$data=pack('CCCCvvNN',
+	1, # UDP
+	2, # TX
+	1, # Not random
+	0, # TCP Count
+	1500, # TX Size
+	0, # Unknown
+	0, # Unlimited
+	0, # Unlimited
+);
+print "client command is ".unpack('H*', "$data")."\n";
+
+$socket->send($data);
+
+while(defined($socket->recv($data, 32768))) {
+	print "client recv data is ".unpack('H*', "$data")."\n";
+}
+exit(0);
+
 while(1)
 {
     # waiting for a new client connection
@@ -41,7 +59,6 @@ while(1)
     $client_socket->send($data);
     print "reading reply\n";
     $client_socket->recv($data, 1024);
-    print "data is ".unpack('H*', "$data")."\n";
     my $action=unpackCmd($data);
     print(Dumper($action));
     # send auth requested command
@@ -64,34 +81,16 @@ while(1)
     	# notify client that response has been sent
         shutdown($client_socket, 1);
     } else {
-    	print "sending hello\n";
-    	# write response data to the connected client
-    	$data = pack 'H*', '01000000';
-    	$client_socket->send($data);
-	my $locudpport=2001;
-	$data= pack('n', $locudpport);
-    	print "sending local port: " . unpack('H*', $data) . "\n";
-    	$client_socket->send($data);
-	#while(defined($client_socket->recv($data, 32768))) {
-	#	print "client recv data is ".unpack('H*', "$data")."\n";
-	#}
-	#exit(0);
-
 	my $tx_socket = new IO::Socket::INET (
-		PeerHost => "$client_address",
-		PeerPort => $locudpport+$udp_port_offset,
-    		LocalHost => '0.0.0.0',
-    		LocalPort => $locudpport,
+		PeerAddr => "$client_address:2000",
 		Proto => 'udp',
 	);
 	die "cannot create socket $!\n" unless $tx_socket;
-	#sleep(10);
-	my $seq=1;
-    	while (1) {
-	    $tx_socket->send(pack 'NNH*', 0, $seq, '00' x ($action->{tx_size}-8-28));
-	    $seq++;
-	    print ".";
-        }
+	sleep(10);
+    	#while (1) {
+	#    $tx_socket->send(pack 'H*', '00' x $action->{tx_size});
+	#    print ".";
+        #}
 	$tx_socket->close();
     }
 }
