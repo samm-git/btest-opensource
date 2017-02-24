@@ -13,6 +13,11 @@
 #include <netdb.h>
 #include <errno.h>
 #include <time.h>
+#include <getopt.h>
+
+#ifdef __MACH__
+#include "timing_mach.h"
+#endif
 
 #define BTEST_PORT 2000
 #define BTEST_PORT_CLIENT_OFFSET 256
@@ -46,7 +51,8 @@ struct statStruct {
 	unsigned long lostPackets; // Not sent over the wire
 };
 
-
+void usage();
+void usage_long();
 int server();
 int client();
 int server_conn(int cmdsock, char *);
@@ -80,23 +86,47 @@ int opt_receive=0;
 char *opt_connect=NULL;
 
 int main(int argc, char **argv){
-	int flags, opt;
-	while ((opt = getopt(argc, argv, "untrc:i:b:")) != -1) {
+	int opt;
+	static struct option long_options[] =
+        {
+          {"udp", no_argument,       &opt_udpmode, 1},
+          {"transmit", no_argument,       &opt_transmit, 1},
+          {"receive", no_argument,       &opt_receive, 1},
+          {"server", no_argument,       &opt_server, 1},
+          {"nat", no_argument,       &opt_nat, 1},
+          {"help", no_argument,       0, 'h'},
+          {"client",     required_argument,       0, 'c'},
+          {"interval",  required_argument,       0, 'i'},
+          {"bandwidth",  required_argument, 0, 'b'},
+          {0, 0, 0, 0}
+    };
+    int option_index = 0;
+
+    if (argc < 2)
+	{
+		usage();
+		exit(1);
+	}
+
+	while ((opt = getopt_long(argc, argv, "utrsnhc:i:b:",long_options,&option_index)) != -1) {
 		switch (opt) {
-		case 'c':
-			opt_connect=strdup(optarg);
-			break;
 		case 'u':
 			opt_udpmode=1;
 			break;
 		case 't':
 			opt_transmit=1;
 			break;
+		case 'r':
+			opt_receive=1;
+			break;
+		case 's':
+			opt_server=1;
+			break;
 		case 'n':
 			opt_nat=1;
 			break;
-		case 'r':
-			opt_receive=1;
+		case 'c':
+			opt_connect=strdup(optarg);
 			break;
 		case 'i':
 			opt_interval=atoi(optarg);
@@ -104,22 +134,51 @@ int main(int argc, char **argv){
 		case 'b':
 			opt_bandwidth=strdup(optarg);
 			break;
+		case 'h':
+			usage_long();
+			exit(1);
+		default:
+			usage();
+            exit(EXIT_FAILURE);
 		}
-	}
-
-	/* Default to server mode */
-	opt_server=(opt_connect==NULL) ? 1 : 0;
-
-	/* Default to recieving - i.e. tell the server to send */
-	if (!opt_transmit && !opt_receive) {
-		opt_receive=1;
 	}
 
 	if (opt_server) {
 		server();
 	} else {
+		if (!opt_transmit && !opt_receive) {
+			printf("You must specify transmit(-t) or receive(-r)\n");
+            exit(EXIT_FAILURE);
+		}
 		client();
 	}
+}
+
+void usage() {
+    const char usage_shortstr[] = "Usage: btest [-s|-r -c host] [options]\n"
+                           "Try `btest --help' for more information.\n";
+    printf(usage_shortstr);
+}
+
+void usage_long() {
+	const char usage_longstr[] = "Usage: btest [-s|-c host] [options]\n"
+	                           "       btest [-h|--help]\n\n"
+	                           "Server or Client:\n"
+	                           "  -i, --interval  #         seconds between periodic bandwidth reports\n"
+	                           "  -h, --help                show this message and quit\n"
+	                           "Server specific:\n"
+	                           "  -s, --server              run in server mode\n"
+	                           "Client specific:\n"
+	                           "  -c, --client    <host>    run in client mode, connecting to <host>\n"
+	                           "  -t, --transmit 			transmit data\n"
+	                           "  -r, --receive 			receive data\n"
+	                           "  -u, --udp                 use UDP\n"
+	                           "  -b, --bandwidth #[KMG][/#] target bandwidth in bits/sec (0 for unlimited)\n"
+	                           "                            (default %d Mbit/sec for UDP, unlimited for TCP)\n"
+	                           "                            (optional slash and packet count for burst mode)\n"
+
+								;
+    printf(usage_longstr);
 }
 
 int client() {
@@ -511,9 +570,14 @@ void *test_udp_tx(void *arg) {
 		}
 		// printf("Sleep until %lu:%lu\n", nextPacketTime.tv_sec, nextPacketTime.tv_nsec);
 		//timespec_dump("sleep until: ", &nextPacketTime);
+#ifdef __MACH__
+		clock_nanosleep_abstime(&nextPacketTime);
+#else
 		if (clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &nextPacketTime, NULL) < 0) {
 			perror("clock_nanosleep: ");
 		}
+#endif
+
 		send(udpSocket, buf, pcmd->tx_size-28,0);
 		/*
 		if (send(udpSocket, buf, pcmd->tx_size-28,0)<0) {
