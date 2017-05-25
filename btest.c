@@ -532,9 +532,15 @@ void *test_udp_tx(void *arg) {
 	printf("Tx speed: %lu\n", tx_speed);
 	if (tx_speed > 0) {
 		// pthread_getcpuclockid(pthread_self(), &clock_id);
+		double interval_nsec; // We use a double so we don't overflow the various ints
+
+		interval_nsec = 1000000000;
+		interval_nsec *= pcmd->tx_size*8;
+		interval_nsec /= tx_speed;
+
 		interval.tv_sec=0;
-		interval.tv_nsec = 1000000000/tx_speed;
-		interval.tv_nsec *= pcmd->tx_size*8;
+		interval.tv_nsec = interval_nsec;
+
 		/* Duplicate bug? in MT where anything less than 2 packets per second gets converted to 1 packet second */
 		if (interval.tv_nsec > 500000000) {
 			interval.tv_nsec=0;
