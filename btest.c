@@ -75,6 +75,7 @@ void packLongBE (unsigned char *, unsigned long);
 void unpackShortLE (unsigned char *, unsigned int *);
 void unpackLongLE (unsigned char *, unsigned long *);
 void unpackLongBE (unsigned char *, unsigned long *);
+void calc_interval(struct timespec *, unsigned long, unsigned int);
 
 char *opt_bandwidth=NULL;
 int opt_udpmode=0;
@@ -84,6 +85,9 @@ int opt_nat=0;
 int opt_transmit=0;
 int opt_receive=0;
 char *opt_connect=NULL;
+
+double new_tx_speed; // Used to command the sending thread to change speed
+int tx_speed_changed=0;
 
 int main(int argc, char **argv){
 	int opt;
@@ -518,6 +522,7 @@ void *test_udp_tx(void *arg) {
 	struct timespec interval; /* Interval between packets in nano seconds */
 	clockid_t clock_id;
 	struct timespec nextPacketTime;
+	int tx_speed_variable=0;
 	unsigned long tx_speed;
 
 	printf("Calling test_udp_tx()\n");
@@ -530,26 +535,13 @@ void *test_udp_tx(void *arg) {
 		tx_speed=pcmd->local_tx_speed;
 	}
 	printf("Tx speed: %lu\n", tx_speed);
-	if (tx_speed > 0) {
-		// pthread_getcpuclockid(pthread_self(), &clock_id);
-		double interval_nsec; // We use a double so we don't overflow the various ints
-
-		interval_nsec = 1000000000;
-		interval_nsec *= pcmd->tx_size*8;
-		interval_nsec /= tx_speed;
-
-		interval.tv_sec=0;
-		interval.tv_nsec = interval_nsec;
-
-		/* Duplicate bug? in MT where anything less than 2 packets per second gets converted to 1 packet second */
-		if (interval.tv_nsec > 500000000) {
-			interval.tv_nsec=0;
-			interval.tv_sec=1;
-		}
-	} else {
-		interval.tv_nsec=0;
-		interval.tv_sec=0;
+	if (tx_speed==0) {
+		tx_speed_variable=1;
+		tx_speed=1000000;
 	}
+	new_tx_speed=tx_speed;
+
+	calc_interval(&interval, tx_speed, pcmd->tx_size);
 	timespec_dump("Interval: ", &interval);
 	buf=(unsigned char *) malloc(pcmd->tx_size-28);
 	printf("Calling test_udp_tx(more)\n");
@@ -559,6 +551,12 @@ void *test_udp_tx(void *arg) {
 	clock_gettime(CLOCK_REALTIME, &nextPacketTime);
 	timespec_dump("gettime: ", &nextPacketTime);
 	while(1) {
+		if (tx_speed_variable && tx_speed_changed) {
+			tx_speed_changed=0;
+			tx_speed=new_tx_speed;
+			calc_interval(&interval, tx_speed, pcmd->tx_size);
+			// printf("New Tx speed: %lf\n", new_tx_speed);
+		}
 		nextPacketTime.tv_sec += interval.tv_sec;
 		nextPacketTime.tv_nsec += interval.tv_nsec;
 		if (nextPacketTime.tv_nsec >= 1000000000) {
@@ -767,6 +765,11 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			if (((cmd.direction & CMD_DIR_TX) && opt_server) || ((cmd.direction & CMD_DIR_RX) && !opt_server)) {
 				/* Only print this if we are transmitting */
 				printStatStruct("Remote: ", &remoteStats);
+
+				/* Set the outgoing speed to be twice the rate reported */
+				new_tx_speed=remoteStats.recvBytes*8;
+				new_tx_speed *= 1.5;
+				tx_speed_changed=1;
 			}
 		}
 
@@ -886,4 +889,29 @@ void dumpBuffer(const char *msg, unsigned char *buffer, int len)
 		printf("%02x", buffer[i]);
 	}
 	printf("\n");
+}
+
+void
+calc_interval(struct timespec *ts, unsigned long tx_speed, unsigned int tx_size)
+{
+	if (tx_speed > 0) {
+		// pthread_getcpuclockid(pthread_self(), &clock_id);
+		double interval_nsec; // We use a double so we don't overflow the various ints
+
+		interval_nsec = 1000000000;
+		interval_nsec *= tx_size*8;
+		interval_nsec /= tx_speed;
+
+		ts->tv_sec=0;
+		ts->tv_nsec = interval_nsec;
+
+		/* Duplicate bug? in MT where anything less than 2 packets per second gets converted to 1 packet second */
+		if (ts->tv_nsec > 500000000) {
+			ts->tv_nsec=0;
+			ts->tv_sec=1;
+		}
+	} else {
+		ts->tv_nsec=0;
+		ts->tv_sec=0;
+	}
 }
