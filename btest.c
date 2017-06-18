@@ -84,6 +84,7 @@ int opt_interval=0;
 int opt_nat=0;
 int opt_transmit=0;
 int opt_receive=0;
+int opt_display=0;
 char *opt_connect=NULL;
 
 double new_tx_speed; // Used to command the sending thread to change speed
@@ -98,6 +99,7 @@ int main(int argc, char **argv){
           {"receive", no_argument,       &opt_receive, 1},
           {"server", no_argument,       &opt_server, 1},
           {"nat", no_argument,       &opt_nat, 1},
+          {"display",  no_argument, &opt_display, 1},
           {"help", no_argument,       0, 'h'},
           {"client",     required_argument,       0, 'c'},
           {"interval",  required_argument,       0, 'i'},
@@ -112,7 +114,7 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	while ((opt = getopt_long(argc, argv, "utrsnhc:i:b:",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "utrsnhdc:i:b:",long_options,&option_index)) != -1) {
 		switch (opt) {
 		case 'u':
 			opt_udpmode=1;
@@ -128,6 +130,9 @@ int main(int argc, char **argv){
 			break;
 		case 'n':
 			opt_nat=1;
+			break;
+		case 'd':
+			opt_display=1;
 			break;
 		case 'c':
 			opt_connect=strdup(optarg);
@@ -447,7 +452,7 @@ void packCmdStr(struct cmdStruct *pcmd, unsigned char *buf) {
 	packLongLE(&buf[8], pcmd->remote_tx_speed);
 	packLongLE(&buf[12], pcmd->local_tx_speed);
 
-	dumpBuffer("Packed Buffer: ", buf, 16);
+	// dumpBuffer("Packed Buffer: ", buf, 16);
 
 	return;
 }
@@ -477,9 +482,9 @@ void printStatStruct(char *msg, struct statStruct *pstat) {
 
 	bitRate=pstat->recvBytes*8;
 	if (bitRate > 10000000) {
-		sprintf(bitRateStr, "%.1fMbps", bitRate/1000000);
+		sprintf(bitRateStr, "%.1fMb/s", bitRate/1000000);
 	} else {
-		sprintf(bitRateStr, "%.1fkbps", bitRate/1000);
+		sprintf(bitRateStr, "%.1fkb/s", bitRate/1000);
 	}
 	printf("%sSeq: %lu, Rate: %s",
 		msg,
@@ -525,10 +530,10 @@ void *test_udp_tx(void *arg) {
 	int tx_speed_variable=0;
 	unsigned long tx_speed;
 
-	printf("Calling test_udp_tx()\n");
+	// printf("Calling test_udp_tx()\n");
 	// sleep(1);
 	pcmd = (struct cmdStruct *)arg;
-	printf("Calling test_udp_tx(%d)\n", pcmd->tx_size);
+	// printf("Calling test_udp_tx(%d)\n", pcmd->tx_size);
 	if (opt_server) {
 		tx_speed=pcmd->remote_tx_speed;
 	} else {
@@ -544,7 +549,7 @@ void *test_udp_tx(void *arg) {
 	calc_interval(&interval, tx_speed, pcmd->tx_size);
 	timespec_dump("Interval: ", &interval);
 	buf=(unsigned char *) malloc(pcmd->tx_size-28);
-	printf("Calling test_udp_tx(more)\n");
+	// printf("Calling test_udp_tx(more)\n");
 	bzero(buf, pcmd->tx_size-28);
 
 	/* Get current time and add the interval to it */
@@ -610,7 +615,7 @@ void *test_udp_rx(void *arg) {
 	recvStats.minInterval=0;
 	recvStats.lostPackets=0;
 	pcmd = (struct cmdStruct *)arg;
-	printf("Calling test_udp_rx(tx_size=%d)\n", pcmd->tx_size);
+	// printf("Calling test_udp_rx(tx_size=%d)\n", pcmd->tx_size);
 	buf=(unsigned char *) malloc(pcmd->tx_size);
 	last.tv_sec=0;
 	last.tv_nsec=0;
@@ -681,7 +686,7 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 	struct timespec timeout;
 	struct timespec now;
 
-	printf("Calling test_udp()\n");
+	// printf("Calling test_udp()\n");
 	if (opt_server) {
 		/* Send server socket number */
 		udpport++;
@@ -693,10 +698,10 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			fprintf(stderr, "Did not recieve remote port number\n");
 			return(-1);
 		}
-		dumpBuffer("Socket number buffer: ", socknumbuf, 2);
+		// dumpBuffer("Socket number buffer: ", socknumbuf, 2);
 		udpport=(socknumbuf[0] << 8) + socknumbuf[1];
 	}
-	printf("Calling test_udp(udpport=%d)\n", udpport);
+	// printf("Calling test_udp(udpport=%d)\n", udpport);
 
 	addr_size = sizeof(clientAddr);
 
@@ -764,8 +769,18 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			remoteStats=unpackStatStr(buffer);
 			if (((cmd.direction & CMD_DIR_TX) && opt_server) || ((cmd.direction & CMD_DIR_RX) && !opt_server)) {
 				/* Only print this if we are transmitting */
-				printStatStruct("Remote: ", &remoteStats);
+				if (opt_display) {
+        				double bitRate=remoteStats.recvBytes*8;
+        				if (bitRate > 10000000) {
+                				printf("%.1f Mb/s\n", bitRate/1000000);
+        				} else {
+                				printf("%.1f kb/s\n", bitRate/1000);
+        				}
+				} else {
+					printStatStruct("Remote: ", &remoteStats);
+				}
 
+				fflush(stdout);
 				/* Set the outgoing speed to be twice the rate reported */
 				new_tx_speed=remoteStats.recvBytes*8;
 				new_tx_speed *= 1.5;
@@ -779,7 +794,17 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			packStatStr(&recvStats, buffer);
 			if (((cmd.direction & CMD_DIR_RX) && opt_server) || ((cmd.direction & CMD_DIR_TX) && !opt_server)) {
 				/* Only print this if we are recieving */
-				printStatStruct("Local : ", &recvStats);
+				if (opt_display) {
+        				double bitRate=recvStats.recvBytes*8;
+        				if (bitRate > 10000000) {
+                				printf("%.1f Mb/s\n", bitRate/1000000);
+        				} else {
+                				printf("%.1f kb/s\n", bitRate/1000);
+        				}
+				} else {
+					printStatStruct("Local : ", &recvStats);
+				}
+				fflush(stdout);
 			}
 			
 			send(cmdsock, buffer, 12, 0);
@@ -799,7 +824,7 @@ void *test_tcp_tx(void *arg) {
 	unsigned char *buf;
 	int ret;
 
-	printf("Calling test_tcp_tx()\n");
+	// printf("Calling test_tcp_tx()\n");
 	sleep(1);
 	pcmd = (struct cmdStruct *)arg;
 	buf=(unsigned char *) malloc(pcmd->tx_size);
@@ -817,7 +842,7 @@ int test_tcp(struct cmdStruct cmd, int cmdsock) {
 	int nBytes, i;
 	unsigned char buffer[1024];
 
-	printf("Calling test_tcp()\n");
+	// printf("Calling test_tcp()\n");
 	tcpSocket=cmdsock;
 	if (cmd.direction == CMD_DIR_TX) {
 		pthread_create(&pth_tx,NULL,test_tcp_tx,(void *)&cmd);
