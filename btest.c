@@ -19,6 +19,8 @@
 #include "timing_mach.h"
 #endif
 
+#include "md5.h"
+
 #define BTEST_PORT 2000
 #define BTEST_PORT_CLIENT_OFFSET 256
 #define CMD_PROTO_UDP 0
@@ -28,6 +30,9 @@
 #define CMD_RANDOM 0
 
 unsigned char helloStr[] = { 0x01, 0x00, 0x00, 0x00 };
+unsigned char noAuthResp[] = { 0x01, 0x00, 0x00, 0x00 };
+unsigned char needAuthResp[] = { 0x02, 0x00, 0x00, 0x00 };
+unsigned char failedAuthResp[] = { 0x00, 0x00, 0x00, 0x00 };
 //unsigned char cmdStr[16];
 unsigned int udpport=BTEST_PORT;
 
@@ -76,6 +81,7 @@ void unpackShortLE (unsigned char *, unsigned int *);
 void unpackLongLE (unsigned char *, unsigned long *);
 void unpackLongBE (unsigned char *, unsigned long *);
 void calc_interval(struct timespec *, unsigned long, unsigned int);
+unsigned char *calc_md5auth(unsigned char *nonce, char *passwd);
 
 char *opt_bandwidth=NULL;
 int opt_udpmode=0;
@@ -86,6 +92,8 @@ int opt_transmit=0;
 int opt_receive=0;
 int opt_display=0;
 char *opt_connect=NULL;
+char *opt_authuser=NULL;
+char *opt_authpass=NULL;
 
 double new_tx_speed; // Used to command the sending thread to change speed
 int tx_speed_changed=0;
@@ -104,6 +112,8 @@ int main(int argc, char **argv){
           {"client",     required_argument,       0, 'c'},
           {"interval",  required_argument,       0, 'i'},
           {"bandwidth",  required_argument, 0, 'b'},
+          {"authuser",  required_argument, 0, 'a'},
+          {"authpass",  required_argument, 0, 'p'},
           {0, 0, 0, 0}
     };
     int option_index = 0;
@@ -114,7 +124,7 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	while ((opt = getopt_long(argc, argv, "utrsnhdc:i:b:",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "utrsnhdc:i:b:a:p:",long_options,&option_index)) != -1) {
 		switch (opt) {
 		case 'u':
 			opt_udpmode=1;
@@ -142,6 +152,12 @@ int main(int argc, char **argv){
 			break;
 		case 'b':
 			opt_bandwidth=strdup(optarg);
+			break;
+		case 'a':
+			opt_authuser=strdup(optarg);
+			break;
+		case 'p':
+			opt_authpass=strdup(optarg);
 			break;
 		case 'h':
 			usage_long();
@@ -185,6 +201,8 @@ void usage_long() {
 	                           "  -b, --bandwidth #[KMG][/#] target bandwidth in bits/sec (0 for unlimited)\n"
 	                           "                            (default %d Mbit/sec for UDP, unlimited for TCP)\n"
 	                           "                            (optional slash and packet count for burst mode)\n"
+	                           "  -a, --authuser <user>     provide username for authentication\n"
+	                           "  -p, --authpass <password> provide password for authentication\n"
 
 								;
     printf(usage_longstr);
@@ -258,19 +276,66 @@ int client() {
 
 	/* Look for hello string */
 	if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
-		fprintf(stderr, "Remote did not return hello response\n");
+		fprintf(stderr, "Remote did not return any hello response\n");
 		return(-1);
 	}
-	dumpBuffer("Hello Response: ", helloStr,sizeof(helloStr));
+
+	if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+		fprintf(stderr, "Remote did not return correct hello response\n");
+		dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+		return(-1);
+	}
 
         send(cmdsock,cmdStr,sizeof(cmdStr),0);
 
 	/* Look for hello string */
 	if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
-		fprintf(stderr, "Remote did not return hello response\n");
+		fprintf(stderr, "Remote did not return any auth response\n");
 		return(-1);
 	}
-	dumpBuffer("Hello Response2: ", helloStr,sizeof(helloStr));
+
+	if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+		if (memcmp(helloStr, needAuthResp, sizeof(needAuthResp))==0) {
+			/* Fetch the 16 random bytes */
+			unsigned char nonce[16];
+			unsigned char user[32];
+			unsigned char *md5hash;
+			if (recv(cmdsock,nonce,sizeof(nonce),0)<sizeof(nonce)) {
+				fprintf(stderr, "Remote did not send auth nonce\n");
+				return(-1);
+			}
+			// dumpBuffer("Nonce: ", nonce, sizeof(nonce));
+			memset(user, '\0', sizeof(user));
+			strncpy(user, opt_authuser, sizeof(user));
+			md5hash=calc_md5auth(nonce, opt_authpass);
+			// dumpBuffer("MD5: ", md5hash, 16);
+        		send(cmdsock,md5hash,16,0);
+        		send(cmdsock,user,sizeof(user),0);
+
+			/* Look for hello string */
+			if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
+				fprintf(stderr, "Remote did not return auth response\n");
+				return(-1);
+			}
+
+			if (memcmp(helloStr, failedAuthResp, sizeof(failedAuthResp))==0) {
+				fprintf(stderr, "Remote authentication failed\n");
+				//dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+				return(-1);
+			}
+
+			if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+				fprintf(stderr, "Remote did not return correct hello response\n");
+				dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+				return(-1);
+			}
+
+		} else {
+			fprintf(stderr, "Remote did not return correct hello response\n");
+			dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+			return(-1);
+		}
+	}
 
 	if (cmd.proto == CMD_PROTO_UDP) {
 		test_udp(cmd, cmdsock, remoteIP);
@@ -947,3 +1012,22 @@ calc_interval(struct timespec *ts, unsigned long tx_speed, unsigned int tx_size)
 		ts->tv_sec=0;
 	}
 }
+
+unsigned char *
+calc_md5auth(unsigned char *nonce, char *passwd)
+{
+	MD5_CTX ctx;
+	static unsigned char hash[16];
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)passwd, strlen(passwd));
+	MD5_Update(&ctx, (void *)nonce, 16);
+	MD5_Final(hash, &ctx);
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)passwd, strlen(passwd));
+	MD5_Update(&ctx, (void *)hash, 16);
+	MD5_Final(hash, &ctx);
+
+	return(hash);
+}	
