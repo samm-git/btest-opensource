@@ -261,6 +261,7 @@ int client() {
 		fprintf(stderr, "Remote did not return hello response\n");
 		return(-1);
 	}
+	dumpBuffer("Hello Response: ", helloStr,sizeof(helloStr));
 
         send(cmdsock,cmdStr,sizeof(cmdStr),0);
 
@@ -269,6 +270,7 @@ int client() {
 		fprintf(stderr, "Remote did not return hello response\n");
 		return(-1);
 	}
+	dumpBuffer("Hello Response2: ", helloStr,sizeof(helloStr));
 
 	if (cmd.proto == CMD_PROTO_UDP) {
 		test_udp(cmd, cmdsock, remoteIP);
