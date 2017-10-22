@@ -48,7 +48,7 @@ struct statStruct {
 	unsigned long recvBytes;
 	unsigned long maxInterval; // In us, Not sent over the wire
 	unsigned long minInterval; // In us, Not sent over the wire
-	unsigned long lostPackets; // Not sent over the wire
+	signed long lostPackets; // Not sent over the wire
 };
 
 void usage();
@@ -492,7 +492,7 @@ void printStatStruct(char *msg, struct statStruct *pstat) {
 		bitRateStr
 	);
 	if (pstat->maxInterval>0) {
-		printf(", Lost: %lu, Min: %.4lfms, Max: %.4lfms, Diff %0.4lfms\n",
+		printf(", Lost: %ld, Min: %.4lfms, Max: %.4lfms, Diff %0.4lfms\n",
 			pstat->lostPackets,
 			((double) pstat->minInterval)/1000,
 			((double) pstat->maxInterval)/1000,
@@ -636,6 +636,11 @@ void *test_udp_rx(void *arg) {
 			thisSeq=thisSeq * 256 + buf[3];
 			if (lastSeq>0) {
 				/* Ignore the first one - we often lose packets initially */
+/*
+				if (thisSeq-lastSeq-1 != 0) {
+					printf("loss: thisSeq=%lu, lastSeq=%lu\n", thisSeq, lastSeq);
+				}
+*/
 				recvStats.lostPackets += thisSeq-lastSeq-1;
 			}
 
