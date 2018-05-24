@@ -19,6 +19,8 @@
 #include "timing_mach.h"
 #endif
 
+#include "md5.h"
+
 #define BTEST_PORT 2000
 #define BTEST_PORT_CLIENT_OFFSET 256
 #define CMD_PROTO_UDP 0
@@ -28,6 +30,9 @@
 #define CMD_RANDOM 0
 
 unsigned char helloStr[] = { 0x01, 0x00, 0x00, 0x00 };
+unsigned char noAuthResp[] = { 0x01, 0x00, 0x00, 0x00 };
+unsigned char needAuthResp[] = { 0x02, 0x00, 0x00, 0x00 };
+unsigned char failedAuthResp[] = { 0x00, 0x00, 0x00, 0x00 };
 //unsigned char cmdStr[16];
 unsigned int udpport=BTEST_PORT;
 
@@ -48,7 +53,7 @@ struct statStruct {
 	unsigned long recvBytes;
 	unsigned long maxInterval; // In us, Not sent over the wire
 	unsigned long minInterval; // In us, Not sent over the wire
-	unsigned long lostPackets; // Not sent over the wire
+	signed long lostPackets; // Not sent over the wire
 };
 
 void usage();
@@ -75,6 +80,8 @@ void packLongBE (unsigned char *, unsigned long);
 void unpackShortLE (unsigned char *, unsigned int *);
 void unpackLongLE (unsigned char *, unsigned long *);
 void unpackLongBE (unsigned char *, unsigned long *);
+void calc_interval(struct timespec *, unsigned long, unsigned int);
+unsigned char *calc_md5auth(unsigned char *nonce, char *passwd);
 
 char *opt_bandwidth=NULL;
 int opt_udpmode=0;
@@ -83,7 +90,13 @@ int opt_interval=0;
 int opt_nat=0;
 int opt_transmit=0;
 int opt_receive=0;
+int opt_display=0;
 char *opt_connect=NULL;
+char *opt_authuser=NULL;
+char *opt_authpass=NULL;
+
+double new_tx_speed; // Used to command the sending thread to change speed
+int tx_speed_changed=0;
 
 int main(int argc, char **argv){
 	int opt;
@@ -94,10 +107,13 @@ int main(int argc, char **argv){
           {"receive", no_argument,       &opt_receive, 1},
           {"server", no_argument,       &opt_server, 1},
           {"nat", no_argument,       &opt_nat, 1},
+          {"display",  no_argument, &opt_display, 1},
           {"help", no_argument,       0, 'h'},
           {"client",     required_argument,       0, 'c'},
           {"interval",  required_argument,       0, 'i'},
           {"bandwidth",  required_argument, 0, 'b'},
+          {"authuser",  required_argument, 0, 'a'},
+          {"authpass",  required_argument, 0, 'p'},
           {0, 0, 0, 0}
     };
     int option_index = 0;
@@ -108,7 +124,7 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 
-	while ((opt = getopt_long(argc, argv, "utrsnhc:i:b:",long_options,&option_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "utrsnhdc:i:b:a:p:",long_options,&option_index)) != -1) {
 		switch (opt) {
 		case 'u':
 			opt_udpmode=1;
@@ -125,6 +141,9 @@ int main(int argc, char **argv){
 		case 'n':
 			opt_nat=1;
 			break;
+		case 'd':
+			opt_display=1;
+			break;
 		case 'c':
 			opt_connect=strdup(optarg);
 			break;
@@ -133,6 +152,12 @@ int main(int argc, char **argv){
 			break;
 		case 'b':
 			opt_bandwidth=strdup(optarg);
+			break;
+		case 'a':
+			opt_authuser=strdup(optarg);
+			break;
+		case 'p':
+			opt_authpass=strdup(optarg);
 			break;
 		case 'h':
 			usage_long();
@@ -176,6 +201,8 @@ void usage_long() {
 	                           "  -b, --bandwidth #[KMG][/#] target bandwidth in bits/sec (0 for unlimited)\n"
 	                           "                            (default %d Mbit/sec for UDP, unlimited for TCP)\n"
 	                           "                            (optional slash and packet count for burst mode)\n"
+	                           "  -a, --authuser <user>     provide username for authentication\n"
+	                           "  -p, --authpass <password> provide password for authentication\n"
 
 								;
     printf(usage_longstr);
@@ -249,7 +276,13 @@ int client() {
 
 	/* Look for hello string */
 	if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
-		fprintf(stderr, "Remote did not return hello response\n");
+		fprintf(stderr, "Remote did not return any hello response\n");
+		return(-1);
+	}
+
+	if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+		fprintf(stderr, "Remote did not return correct hello response\n");
+		dumpBuffer("Response: ", helloStr,sizeof(helloStr));
 		return(-1);
 	}
 
@@ -257,8 +290,51 @@ int client() {
 
 	/* Look for hello string */
 	if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
-		fprintf(stderr, "Remote did not return hello response\n");
+		fprintf(stderr, "Remote did not return any auth response\n");
 		return(-1);
+	}
+
+	if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+		if (memcmp(helloStr, needAuthResp, sizeof(needAuthResp))==0) {
+			/* Fetch the 16 random bytes */
+			unsigned char nonce[16];
+			unsigned char user[32];
+			unsigned char *md5hash;
+			if (recv(cmdsock,nonce,sizeof(nonce),0)<sizeof(nonce)) {
+				fprintf(stderr, "Remote did not send auth nonce\n");
+				return(-1);
+			}
+			// dumpBuffer("Nonce: ", nonce, sizeof(nonce));
+			memset(user, '\0', sizeof(user));
+			strncpy(user, opt_authuser, sizeof(user));
+			md5hash=calc_md5auth(nonce, opt_authpass);
+			// dumpBuffer("MD5: ", md5hash, 16);
+        		send(cmdsock,md5hash,16,0);
+        		send(cmdsock,user,sizeof(user),0);
+
+			/* Look for hello string */
+			if (recv(cmdsock,helloStr,sizeof(helloStr),0)<sizeof(helloStr)) {
+				fprintf(stderr, "Remote did not return auth response\n");
+				return(-1);
+			}
+
+			if (memcmp(helloStr, failedAuthResp, sizeof(failedAuthResp))==0) {
+				fprintf(stderr, "Remote authentication failed\n");
+				//dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+				return(-1);
+			}
+
+			if (memcmp(helloStr, noAuthResp, sizeof(noAuthResp))!=0) {
+				fprintf(stderr, "Remote did not return correct hello response\n");
+				dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+				return(-1);
+			}
+
+		} else {
+			fprintf(stderr, "Remote did not return correct hello response\n");
+			dumpBuffer("Response: ", helloStr,sizeof(helloStr));
+			return(-1);
+		}
 	}
 
 	if (cmd.proto == CMD_PROTO_UDP) {
@@ -443,7 +519,7 @@ void packCmdStr(struct cmdStruct *pcmd, unsigned char *buf) {
 	packLongLE(&buf[8], pcmd->remote_tx_speed);
 	packLongLE(&buf[12], pcmd->local_tx_speed);
 
-	dumpBuffer("Packed Buffer: ", buf, 16);
+	// dumpBuffer("Packed Buffer: ", buf, 16);
 
 	return;
 }
@@ -473,9 +549,9 @@ void printStatStruct(char *msg, struct statStruct *pstat) {
 
 	bitRate=pstat->recvBytes*8;
 	if (bitRate > 10000000) {
-		sprintf(bitRateStr, "%.1fMbps", bitRate/1000000);
+		sprintf(bitRateStr, "%.1fMb/s", bitRate/1000000);
 	} else {
-		sprintf(bitRateStr, "%.1fkbps", bitRate/1000);
+		sprintf(bitRateStr, "%.1fkb/s", bitRate/1000);
 	}
 	printf("%sSeq: %lu, Rate: %s",
 		msg,
@@ -483,7 +559,7 @@ void printStatStruct(char *msg, struct statStruct *pstat) {
 		bitRateStr
 	);
 	if (pstat->maxInterval>0) {
-		printf(", Lost: %lu, Min: %.4lfms, Max: %.4lfms, Diff %0.4lfms\n",
+		printf(", Lost: %ld, Min: %.4lfms, Max: %.4lfms, Diff %0.4lfms\n",
 			pstat->lostPackets,
 			((double) pstat->minInterval)/1000,
 			((double) pstat->maxInterval)/1000,
@@ -518,41 +594,41 @@ void *test_udp_tx(void *arg) {
 	struct timespec interval; /* Interval between packets in nano seconds */
 	clockid_t clock_id;
 	struct timespec nextPacketTime;
+	int tx_speed_variable=0;
 	unsigned long tx_speed;
 
-	printf("Calling test_udp_tx()\n");
+	// printf("Calling test_udp_tx()\n");
 	// sleep(1);
 	pcmd = (struct cmdStruct *)arg;
-	printf("Calling test_udp_tx(%d)\n", pcmd->tx_size);
+	// printf("Calling test_udp_tx(%d)\n", pcmd->tx_size);
 	if (opt_server) {
 		tx_speed=pcmd->remote_tx_speed;
 	} else {
 		tx_speed=pcmd->local_tx_speed;
 	}
 	printf("Tx speed: %lu\n", tx_speed);
-	if (tx_speed > 0) {
-		// pthread_getcpuclockid(pthread_self(), &clock_id);
-		interval.tv_sec=0;
-		interval.tv_nsec = 1000000000/tx_speed;
-		interval.tv_nsec *= pcmd->tx_size*8;
-		/* Duplicate bug? in MT where anything less than 2 packets per second gets converted to 1 packet second */
-		if (interval.tv_nsec > 500000000) {
-			interval.tv_nsec=0;
-			interval.tv_sec=1;
-		}
-	} else {
-		interval.tv_nsec=0;
-		interval.tv_sec=0;
+	if (tx_speed==0) {
+		tx_speed_variable=1;
+		tx_speed=1000000;
 	}
+	new_tx_speed=tx_speed;
+
+	calc_interval(&interval, tx_speed, pcmd->tx_size);
 	timespec_dump("Interval: ", &interval);
 	buf=(unsigned char *) malloc(pcmd->tx_size-28);
-	printf("Calling test_udp_tx(more)\n");
+	// printf("Calling test_udp_tx(more)\n");
 	bzero(buf, pcmd->tx_size-28);
 
 	/* Get current time and add the interval to it */
 	clock_gettime(CLOCK_REALTIME, &nextPacketTime);
 	timespec_dump("gettime: ", &nextPacketTime);
 	while(1) {
+		if (tx_speed_variable && tx_speed_changed) {
+			tx_speed_changed=0;
+			tx_speed=new_tx_speed;
+			calc_interval(&interval, tx_speed, pcmd->tx_size);
+			// printf("New Tx speed: %lf\n", new_tx_speed);
+		}
 		nextPacketTime.tv_sec += interval.tv_sec;
 		nextPacketTime.tv_nsec += interval.tv_nsec;
 		if (nextPacketTime.tv_nsec >= 1000000000) {
@@ -606,7 +682,7 @@ void *test_udp_rx(void *arg) {
 	recvStats.minInterval=0;
 	recvStats.lostPackets=0;
 	pcmd = (struct cmdStruct *)arg;
-	printf("Calling test_udp_rx(tx_size=%d)\n", pcmd->tx_size);
+	// printf("Calling test_udp_rx(tx_size=%d)\n", pcmd->tx_size);
 	buf=(unsigned char *) malloc(pcmd->tx_size);
 	last.tv_sec=0;
 	last.tv_nsec=0;
@@ -627,6 +703,11 @@ void *test_udp_rx(void *arg) {
 			thisSeq=thisSeq * 256 + buf[3];
 			if (lastSeq>0) {
 				/* Ignore the first one - we often lose packets initially */
+/*
+				if (thisSeq-lastSeq-1 != 0) {
+					printf("loss: thisSeq=%lu, lastSeq=%lu\n", thisSeq, lastSeq);
+				}
+*/
 				recvStats.lostPackets += thisSeq-lastSeq-1;
 			}
 
@@ -677,7 +758,7 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 	struct timespec timeout;
 	struct timespec now;
 
-	printf("Calling test_udp()\n");
+	// printf("Calling test_udp()\n");
 	if (opt_server) {
 		/* Send server socket number */
 		udpport++;
@@ -689,10 +770,10 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			fprintf(stderr, "Did not recieve remote port number\n");
 			return(-1);
 		}
-		dumpBuffer("Socket number buffer: ", socknumbuf, 2);
+		// dumpBuffer("Socket number buffer: ", socknumbuf, 2);
 		udpport=(socknumbuf[0] << 8) + socknumbuf[1];
 	}
-	printf("Calling test_udp(udpport=%d)\n", udpport);
+	// printf("Calling test_udp(udpport=%d)\n", udpport);
 
 	addr_size = sizeof(clientAddr);
 
@@ -760,7 +841,22 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			remoteStats=unpackStatStr(buffer);
 			if (((cmd.direction & CMD_DIR_TX) && opt_server) || ((cmd.direction & CMD_DIR_RX) && !opt_server)) {
 				/* Only print this if we are transmitting */
-				printStatStruct("Remote: ", &remoteStats);
+				if (opt_display) {
+        				double bitRate=remoteStats.recvBytes*8;
+        				if (bitRate > 10000000) {
+                				printf("%.1f Mb/s\n", bitRate/1000000);
+        				} else {
+                				printf("%.1f kb/s\n", bitRate/1000);
+        				}
+				} else {
+					printStatStruct("Remote: ", &remoteStats);
+				}
+
+				fflush(stdout);
+				/* Set the outgoing speed to be twice the rate reported */
+				new_tx_speed=remoteStats.recvBytes*8;
+				new_tx_speed *= 1.5;
+				tx_speed_changed=1;
 			}
 		}
 
@@ -770,7 +866,17 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			packStatStr(&recvStats, buffer);
 			if (((cmd.direction & CMD_DIR_RX) && opt_server) || ((cmd.direction & CMD_DIR_TX) && !opt_server)) {
 				/* Only print this if we are recieving */
-				printStatStruct("Local : ", &recvStats);
+				if (opt_display) {
+        				double bitRate=recvStats.recvBytes*8;
+        				if (bitRate > 10000000) {
+                				printf("%.1f Mb/s\n", bitRate/1000000);
+        				} else {
+                				printf("%.1f kb/s\n", bitRate/1000);
+        				}
+				} else {
+					printStatStruct("Local : ", &recvStats);
+				}
+				fflush(stdout);
 			}
 			
 			send(cmdsock, buffer, 12, 0);
@@ -790,7 +896,7 @@ void *test_tcp_tx(void *arg) {
 	unsigned char *buf;
 	int ret;
 
-	printf("Calling test_tcp_tx()\n");
+	// printf("Calling test_tcp_tx()\n");
 	sleep(1);
 	pcmd = (struct cmdStruct *)arg;
 	buf=(unsigned char *) malloc(pcmd->tx_size);
@@ -808,7 +914,7 @@ int test_tcp(struct cmdStruct cmd, int cmdsock) {
 	int nBytes, i;
 	unsigned char buffer[1024];
 
-	printf("Calling test_tcp()\n");
+	// printf("Calling test_tcp()\n");
 	tcpSocket=cmdsock;
 	if (cmd.direction == CMD_DIR_TX) {
 		pthread_create(&pth_tx,NULL,test_tcp_tx,(void *)&cmd);
@@ -881,3 +987,47 @@ void dumpBuffer(const char *msg, unsigned char *buffer, int len)
 	}
 	printf("\n");
 }
+
+void
+calc_interval(struct timespec *ts, unsigned long tx_speed, unsigned int tx_size)
+{
+	if (tx_speed > 0) {
+		// pthread_getcpuclockid(pthread_self(), &clock_id);
+		double interval_nsec; // We use a double so we don't overflow the various ints
+
+		interval_nsec = 1000000000;
+		interval_nsec *= tx_size*8;
+		interval_nsec /= tx_speed;
+
+		ts->tv_sec=0;
+		ts->tv_nsec = interval_nsec;
+
+		/* Duplicate bug? in MT where anything less than 2 packets per second gets converted to 1 packet second */
+		if (ts->tv_nsec > 500000000) {
+			ts->tv_nsec=0;
+			ts->tv_sec=1;
+		}
+	} else {
+		ts->tv_nsec=0;
+		ts->tv_sec=0;
+	}
+}
+
+unsigned char *
+calc_md5auth(unsigned char *nonce, char *passwd)
+{
+	MD5_CTX ctx;
+	static unsigned char hash[16];
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)passwd, strlen(passwd));
+	MD5_Update(&ctx, (void *)nonce, 16);
+	MD5_Final(hash, &ctx);
+
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, (void *)passwd, strlen(passwd));
+	MD5_Update(&ctx, (void *)hash, 16);
+	MD5_Final(hash, &ctx);
+
+	return(hash);
+}	
