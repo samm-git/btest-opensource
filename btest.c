@@ -41,8 +41,8 @@ struct cmdStruct {
 	int direction;
 	int random;
 	int tcp_conn_count;
-	int tx_size;
-	int client_buf_size;
+	unsigned int tx_size;
+	unsigned int client_buf_size;
 	unsigned long remote_tx_speed;
 	unsigned long local_tx_speed;
 };
@@ -205,7 +205,7 @@ void usage_long() {
 	                           "  -p, --authpass <password> provide password for authentication\n"
 
 								;
-    printf(usage_longstr);
+    printf("%s", usage_longstr);
 }
 
 int client() {
@@ -298,7 +298,7 @@ int client() {
 		if (memcmp(helloStr, needAuthResp, sizeof(needAuthResp))==0) {
 			/* Fetch the 16 random bytes */
 			unsigned char nonce[16];
-			unsigned char user[32];
+			char user[32];
 			unsigned char *md5hash;
 			if (recv(cmdsock,nonce,sizeof(nonce),0)<sizeof(nonce)) {
 				fprintf(stderr, "Remote did not send auth nonce\n");
@@ -347,7 +347,6 @@ int client() {
 
 int server() {
 	int controlSocket;
-	char buffer[1024];
 	struct sockaddr_in serverAddr;
 	struct sockaddr_in clientAddr;
 	socklen_t addr_size;
@@ -391,7 +390,6 @@ int server() {
 
 int server_conn(int cmdsock, char *remoteIP) {
 	int nBytes = 1;
-	int i;
 	struct cmdStruct cmd;
 	unsigned char cmdStr[16];
 
@@ -428,8 +426,8 @@ int server_conn(int cmdsock, char *remoteIP) {
 	} else {
 		test_tcp(cmd, cmdsock);
 	}
-	/*
-	/*loop while connection is live*/
+	/* loop while connection is live */
+	return 0;
 }
 
 void packShortLE (unsigned char *buf, unsigned int res) {
@@ -485,7 +483,6 @@ void unpackLongBE (unsigned char *buf, unsigned long *pres) {
 
 struct cmdStruct unpackCmdStr(unsigned char *cmdStr) {
 	struct cmdStruct cmd;
-	int i;
 
 	dumpBuffer("Cmd buffer: ", cmdStr, 16);
 
@@ -590,9 +587,8 @@ void *test_udp_tx(void *arg) {
 	struct cmdStruct *pcmd;
 	unsigned char *buf;
 	int seq=1;
-	int tmp, i;
+	int i;
 	struct timespec interval; /* Interval between packets in nano seconds */
-	clockid_t clock_id;
 	struct timespec nextPacketTime;
 	int tx_speed_variable=0;
 	unsigned long tx_speed;
@@ -636,7 +632,6 @@ void *test_udp_tx(void *arg) {
 			nextPacketTime.tv_nsec %= 1000000000;
 		}
 		int tmp=seq++;
-		int nBytes;
 	
 		//printf("seq=%d\n", seq);
 		/* Put in sequence number */
@@ -750,7 +745,7 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 	pthread_t pth_rx;
 	struct sockaddr_in serverAddr, clientAddr;
 	socklen_t addr_size;
-	int nBytes, i;
+	int nBytes;
 	unsigned char buffer[1024];
 	struct statStruct remoteStats;
 	struct timespec interval; /* Interval between status messages */
@@ -894,7 +889,6 @@ int tcpSocket;
 void *test_tcp_tx(void *arg) {
 	struct cmdStruct *pcmd;
 	unsigned char *buf;
-	int ret;
 
 	// printf("Calling test_tcp_tx()\n");
 	sleep(1);
@@ -906,11 +900,12 @@ void *test_tcp_tx(void *arg) {
 	buf[4]=0x01;
 
 	while(send(tcpSocket, buf, pcmd->tx_size,0)>0);
+	return NULL;
 }
 
 int test_tcp(struct cmdStruct cmd, int cmdsock) {
 	pthread_t pth_tx;
-	pthread_t pth_rx;
+	// pthread_t pth_rx;
 	int nBytes, i;
 	unsigned char buffer[1024];
 
@@ -921,12 +916,13 @@ int test_tcp(struct cmdStruct cmd, int cmdsock) {
 	}
 
 	printf("Listening on TCP cmdsock\n");
-	while(nBytes=recv(cmdsock,buffer,1024,0)){
+	while((nBytes=recv(cmdsock,buffer,1024,0))){
 		for (i=0;i<nBytes-1;i++){
 			printf("%02x", buffer[i]);
 		}
 		printf("\n");
         }
+        return 0;
 }
 
 /* Calculate the difference between two timespec's */
