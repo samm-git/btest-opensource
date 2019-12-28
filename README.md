@@ -52,16 +52,17 @@ b4:f2:9e:06:5e:74:da:89:65:c9:be:94:4d:bf:8f:20:74:65:73:74:00:00:00:00:00:00:00
  - **cmd[8:11]**: remote-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Little Endian
  - **cmd[12:15]**: local-tx-speed, 0: unlimimted, 1-4294967295: value, UINT32 - Little Endian
 3. If server authentication is disabled it sends 01:00:00:00 and starts to transmit/recieve data. 
-If auth is enabled server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
-Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is double md5, hashed by challenge, see "authentication" section.
+If auth is enabled and **btest server versions is < 6.43** server sends 20bytes reply started with 02:00:00:00 in the beginning and random bytes (challenge) in the [4:15] range.
+Customer sends back 48 bytes reply containing user name (unencrypted) and 16 bytes hash of the password with challenge. Hashing alghoritm is double md5, hashed by challenge, see "authentication" section. 
+If **btest server versions is >= 6.43** server sends **03:00:00:00** reply and new authentication method is used, based on the EC-SRP5. Exact implementation details are not yet known and method is not yet supported in the OSS software. See https://github.com/haakonnessjoen/MAC-Telnet/issues/42 for the related discussion. 
 4. If auth failed server sends back `00000000` (client shows "authentication failed"), if succeed - `01000000` packet and test is starting.
 5. If tcp-connection-count > 1 server should reply with `01:xx:xx:00` where xx seems to be some kind of authentification data to start other connections. This number is used in other threads. 
 6. From time to time (~1 per second) server or client sends 12 bytes messages started with `07`, e.g. `07:00:00:00:01:00:00:00:36:6e:03:00`. Btest client relies on this information to show "transmit" speed.  It is server-level statistic, where values are:
   - **stat[0]** is 07 (message id)
   - **stat[4-7]**  number or time from start in seconds, sends one per second, UINT32 - Little Endian
   - **stat[8-11]** number of bytes transferred per sequence, UINT32 - Little Endian
- 
-## Authentication
+
+## Old authentication methoud
 Sample of the challenge-response for the "test" password:
 ```
 ad32d6f94d28161625f2f390bb895637
