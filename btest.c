@@ -590,6 +590,7 @@ void *test_udp_tx(void *arg) {
 	int i;
 	struct timespec interval; /* Interval between packets in nano seconds */
 	struct timespec nextPacketTime;
+	struct timespec now;
 	int tx_speed_variable=0;
 	unsigned long tx_speed;
 
@@ -616,7 +617,7 @@ void *test_udp_tx(void *arg) {
 	bzero(buf, pcmd->tx_size-28);
 
 	/* Get current time and add the interval to it */
-	clock_gettime(CLOCK_REALTIME, &nextPacketTime);
+	clock_gettime(CLOCK_MONOTONIC, &nextPacketTime);
 	timespec_dump("gettime: ", &nextPacketTime);
 	while(1) {
 		if (tx_speed_variable && tx_speed_changed) {
@@ -641,13 +642,16 @@ void *test_udp_tx(void *arg) {
 		}
 		// printf("Sleep until %lu:%lu\n", nextPacketTime.tv_sec, nextPacketTime.tv_nsec);
 		//timespec_dump("sleep until: ", &nextPacketTime);
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		if (now.tv_sec <= nextPacketTime.tv_sec && now.tv_nsec < nextPacketTime.tv_nsec) {
 #ifdef __MACH__
-		clock_nanosleep_abstime(&nextPacketTime);
+			clock_nanosleep_abstime(&nextPacketTime);
 #else
-		if (clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &nextPacketTime, NULL) < 0) {
-			perror("clock_nanosleep: ");
-		}
+			if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &nextPacketTime, NULL) < 0) {
+				perror("clock_nanosleep: ");
+			}
 #endif
+		}
 
 		send(udpSocket, buf, pcmd->tx_size-28,0);
 		/*
@@ -690,7 +694,7 @@ void *test_udp_rx(void *arg) {
 			}
 		}
 		if (nBytes>0) {
-			clock_gettime(CLOCK_REALTIME, &now);
+			clock_gettime(CLOCK_MONOTONIC, &now);
 
 			thisSeq=buf[0];
 			thisSeq=thisSeq * 256 + buf[1];
@@ -815,14 +819,14 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 	interval.tv_sec=1;
 
 	/* Get current time and add the interval to it */
-	clock_gettime(CLOCK_REALTIME, &nextStatusTime);
+	clock_gettime(CLOCK_MONOTONIC, &nextStatusTime);
 	timespec_add(&nextStatusTime, &interval);
 	recvStats.seq=0;
 	while(1) {
 		int ready;
 		fd_set readfds;
 
-		clock_gettime(CLOCK_REALTIME, &now);
+		clock_gettime(CLOCK_MONOTONIC, &now);
 		timespec_diff(&now, &nextStatusTime, &timeout);
 
 		FD_ZERO(&readfds);
@@ -855,7 +859,7 @@ int test_udp(struct cmdStruct cmd, int cmdsock, char *remoteIP) {
 			}
 		}
 
-		clock_gettime(CLOCK_REALTIME, &now);
+		clock_gettime(CLOCK_MONOTONIC, &now);
 		if (timespec_cmp(&now, &nextStatusTime) > 0) {
 			recvStats.seq++;
 			packStatStr(&recvStats, buffer);
