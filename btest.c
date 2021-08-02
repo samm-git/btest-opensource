@@ -590,6 +590,7 @@ void *test_udp_tx(void *arg) {
 	int i;
 	struct timespec interval; /* Interval between packets in nano seconds */
 	struct timespec nextPacketTime;
+	struct timespec now;
 	int tx_speed_variable=0;
 	unsigned long tx_speed;
 
@@ -641,13 +642,16 @@ void *test_udp_tx(void *arg) {
 		}
 		// printf("Sleep until %lu:%lu\n", nextPacketTime.tv_sec, nextPacketTime.tv_nsec);
 		//timespec_dump("sleep until: ", &nextPacketTime);
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		if (now.tv_sec <= nextPacketTime.tv_sec && now.tv_nsec < nextPacketTime.tv_nsec) {
 #ifdef __MACH__
-		clock_nanosleep_abstime(&nextPacketTime);
+			clock_nanosleep_abstime(&nextPacketTime);
 #else
-		if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &nextPacketTime, NULL) < 0) {
-			perror("clock_nanosleep: ");
-		}
+			if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &nextPacketTime, NULL) < 0) {
+				perror("clock_nanosleep: ");
+			}
 #endif
+		}
 
 		send(udpSocket, buf, pcmd->tx_size-28,0);
 		/*
