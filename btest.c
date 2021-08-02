@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/types.h> 
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -372,6 +373,7 @@ int server() {
 		printf("Error\n");
 	
 	addr_size = sizeof(clientAddr);
+	signal(SIGCHLD, SIG_IGN);
 	while(1) {
 		newSocket = accept(controlSocket, (struct sockaddr *) &clientAddr, &addr_size);
 		/* fork a child process to handle the new connection */
