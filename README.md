@@ -5,7 +5,7 @@ This is attempt to create opensource version of the btest tool. Currently it is 
 Protocol itsef seems to be not complicated, so it should not be easy to create 3rd party client for it.
 
 ## Protocol description
-There is no official protocl description, so everything was obtained using WireShark tool and RouterOS 6 running in the virtualbox, which was connecting to the real device. For now i am inspecting only TCP, later will try to do UDP if TCP works. Please keep in mind that this data is guessed on the captures, so possibly is not accurate or wrong. 
+There is no official protocol description, so everything was obtained using WireShark tool and RouterOS 6 running in the virtualbox, which was connecting to the real device. For now i am inspecting only TCP, later will try to do UDP if TCP works. Please keep in mind that this data is guessed on the captures, so possibly is not accurate or wrong. 
 
 ```
 > bserver: hello
