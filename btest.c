@@ -24,7 +24,6 @@
 #endif
 
 #include "md5.h"
-#define AUTHSTR_SIZE 32
 #define BTEST_PORT 2000
 #define BTEST_PORT_CLIENT_OFFSET 256
 #define CMD_PROTO_UDP 0
@@ -466,7 +465,9 @@ int server_conn(int cmdsock, char *remoteIP)
 	printf("local_tx_speed=%lu\n", cmd.local_tx_speed);
 	printf("remoteIP=%s\n", remoteIP);
 	/* auth logic here */
-	if (strlen(opt_authuser) != 0 || strlen(opt_authpass) != 0)
+	int isauthrequired = isStringNotEmpty(opt_authuser) || isStringNotEmpty(opt_authpass);
+	printf("is auth required: %d\n", isauthrequired);
+	if (isauthrequired)
 	{
 		/* Send auth request */
 		hexValue = htonl(0x02000000);
@@ -492,21 +493,12 @@ int server_conn(int cmdsock, char *remoteIP)
 		getHexRepresentation(authstr, (size_t)16, receivedhash);
 		getHexRepresentation(md5hash, (size_t)16, serverdigest);
 		// dumpBuffer("> auth Response: ", authstr, sizeof(authstr));
-		// printf("username received from %s: %s\n", remoteIP, username);
-		// printf("digests: server have %s \t client sent %s\n", serverdigest, receivedhash);
-		if ((strlen(opt_authuser) != 0 && strcasecmp((char *)username, opt_authuser) != -1) || strlen(opt_authuser) == 0)
+		printf("auth received from %s: user(%s) - pass_digest(%s)\n", remoteIP, username, receivedhash);
+		printf("server have user(%s) - pass_digest(%s)\n", opt_authuser, serverdigest);
+		if (isauth(opt_authuser, username, receivedhash, serverdigest))
 		{
-			if ((strlen(opt_authpass) != 0 && strcasecmp(serverdigest, receivedhash) != -1) || strlen(opt_authpass) == 0)
-			{
-				hexValue = htonl(0x01000000);
-				send(cmdsock, &hexValue, sizeof(hexValue), 0);
-			}
-			else
-			{
-				hexValue = htonl(0x00000000);
-				send(cmdsock, &hexValue, sizeof(hexValue), 0);
-				return (-1);
-			}
+			hexValue = htonl(0x01000000);
+			send(cmdsock, &hexValue, sizeof(hexValue), 0);
 		}
 		else
 		{
@@ -520,11 +512,17 @@ int server_conn(int cmdsock, char *remoteIP)
 
 	if (cmd.proto == CMD_PROTO_UDP)
 	{
-		test_udp(cmd, cmdsock, remoteIP);
+		if (test_udp(cmd, cmdsock, remoteIP) != -1)
+		{
+			return (-1);
+		}
 	}
 	else
 	{
-		test_tcp(cmd, cmdsock);
+		if (test_tcp(cmd, cmdsock) == -1)
+		{
+			return (-1);
+		}
 	}
 	/* loop while connection is live */
 	return 0;
