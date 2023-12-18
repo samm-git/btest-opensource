@@ -15,14 +15,8 @@
 #include <errno.h>
 #include <time.h>
 #include <getopt.h>
-
-#ifdef __MACH__
 #include "timing_mach.h"
-#endif
-#ifdef __MACH__
 #include "utils.h"
-#endif
-
 #include "md5.h"
 #define BTEST_PORT 2000
 #define BTEST_PORT_CLIENT_OFFSET 256
