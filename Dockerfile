@@ -9,7 +9,7 @@ RUN apk --no-cache add build-base
 
 # Copy the build.sh script and btest source code into the container
 COPY build.sh .
-COPY *.c /app/
+COPY . /app/
 
 # Run the build.sh script to compile btest
 RUN chmod +x build.sh && ./build.sh
