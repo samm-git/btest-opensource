@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  btest-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: btest_tool
+    image: btest_tools:latest
+    environment:
+      - USERNAME=_________ # username here ...
+      - PASSWORD=_________ # password here ...
